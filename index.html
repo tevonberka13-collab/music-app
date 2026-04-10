@@ -2,34 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Music App</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <h1>Music App 🎵</h1>
-
-  <input id="songTitle" placeholder="Song title">
-  <br><br>
-
-  <select id="ideaCategory">
-    <option value="" selected disabled>Select a category</option>
-    <option value="Hook">Hook</option>
-    <option value="Verse">Verse</option>
-    <option value="Song Idea">Song Idea</option>
-  </select>
-  <br><br>
-
-  <textarea id="lyricIdea" placeholder="Lyric idea"></textarea>
-  <br><br>
-
-  <button id="saveIdeaButton" type="button" onclick="saveIdea()">Save Idea</button>
-  <button id="cancelEditButton" type="button" onclick="cancelEdit()" hidden>Cancel Edit</button>
-
-  <h2>Saved Ideas</h2>
-  <input id="ideaSearch" placeholder="Search by title or lyric text">
-  <ul id="list"></ul>
-
-  <script src="script.js"></script>
-</body>
-</html>
+  <main class="app-shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Studio Notebook</p>
+        <h1>Music Idea App</h1>
+        <p class="hero-text">
+          Capture hooks, shape verses, and keep ev

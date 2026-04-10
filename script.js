@@ -8,6 +8,8 @@ const lyricIdeaInput = document.getElementById("lyricIdea");
 const ideaSearchInput = document.getElementById("ideaSearch");
 const saveIdeaButton = document.getElementById("saveIdeaButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
+const composerStatus = document.getElementById("composerStatus");
+const ideaCount = document.getElementById("ideaCount");
 
 function formatIdeaCategory(category) {
   if (ideaCategories.indexOf(category) === -1) {
@@ -46,13 +48,29 @@ function saveIdeas() {
   localStorage.setItem("musicIdeas", JSON.stringify(ideas));
 }
 
+function updateComposerState() {
+  if (editingIdeaIndex === null) {
+    saveIdeaButton.textContent = "Save Idea";
+    cancelEditButton.hidden = true;
+    composerStatus.textContent =
+      "Add a title, choose a category, and lock in the lyric while it is still fresh.";
+    document.body.classList.remove("is-editing");
+    return;
+  }
+
+  saveIdeaButton.textContent = "Update Idea";
+  cancelEditButton.hidden = false;
+  composerStatus.textContent =
+    "Editing an existing idea. Update the title, category, or lyric, then save your changes.";
+  document.body.classList.add("is-editing");
+}
+
 function resetForm() {
   editingIdeaIndex = null;
   songTitleInput.value = "";
   ideaCategorySelect.selectedIndex = 0;
   lyricIdeaInput.value = "";
-  saveIdeaButton.textContent = "Save Idea";
-  cancelEditButton.hidden = true;
+  updateComposerState();
 }
 
 function startEditingIdea(index) {
@@ -68,14 +86,45 @@ function startEditingIdea(index) {
     ideaCategorySelect.value = idea.category;
   }
 
-  saveIdeaButton.textContent = "Update Idea";
-  cancelEditButton.hidden = false;
+  updateComposerState();
   songTitleInput.focus();
+}
+
+function updateIdeaCount(searchQuery, visibleIdeaCount) {
+  const totalIdeas = ideas.length;
+  const ideaLabel = totalIdeas === 1 ? "idea" : "ideas";
+
+  if (searchQuery) {
+    ideaCount.textContent = visibleIdeaCount + " of " + totalIdeas + " " + ideaLabel;
+    return;
+  }
+
+  ideaCount.textContent = totalIdeas + " " + ideaLabel;
+}
+
+function renderEmptyState(list, searchQuery) {
+  const emptyItem = document.createElement("li");
+  emptyItem.className = "empty-state";
+
+  const emptyTitle = document.createElement("h3");
+  emptyTitle.className = "empty-state-title";
+  emptyTitle.textContent = searchQuery ? "No matching ideas" : "No ideas saved yet";
+
+  const emptyText = document.createElement("p");
+  emptyText.className = "empty-state-text";
+  emptyText.textContent = searchQuery
+    ? "Try a different title or lyric search to find the draft you want."
+    : "Your saved hooks, verses, and song concepts will show up here as polished cards.";
+
+  emptyItem.appendChild(emptyTitle);
+  emptyItem.appendChild(emptyText);
+  list.appendChild(emptyItem);
 }
 
 function renderIdeas() {
   const list = document.getElementById("list");
   const searchQuery = ideaSearchInput.value.trim().toLowerCase();
+  let visibleIdeaCount = 0;
 
   list.innerHTML = "";
 
@@ -83,6 +132,8 @@ function renderIdeas() {
     if (!matchesIdeaSearch(idea, searchQuery)) {
       return;
     }
+
+    visibleIdeaCount += 1;
 
     const item = document.createElement("li");
 
@@ -93,9 +144,13 @@ function renderIdeas() {
     ideaCategory.className = "idea-category";
     ideaCategory.textContent = formatIdeaCategory(idea.category);
 
-    const ideaText = document.createElement("span");
+    const ideaTitle = document.createElement("h3");
+    ideaTitle.className = "idea-title";
+    ideaTitle.textContent = idea.title || "Untitled idea";
+
+    const ideaText = document.createElement("p");
     ideaText.className = "idea-text";
-    ideaText.textContent = idea.title + ": " + idea.lyric;
+    ideaText.textContent = idea.lyric || "";
 
     const ideaTimestamp = document.createElement("span");
     ideaTimestamp.className = "idea-timestamp";
@@ -121,6 +176,7 @@ function renderIdeas() {
     });
 
     ideaContent.appendChild(ideaCategory);
+    ideaContent.appendChild(ideaTitle);
     ideaContent.appendChild(ideaText);
     ideaContent.appendChild(ideaTimestamp);
     item.appendChild(ideaContent);
@@ -129,6 +185,12 @@ function renderIdeas() {
     item.appendChild(ideaActions);
     list.appendChild(item);
   });
+
+  updateIdeaCount(searchQuery, visibleIdeaCount);
+
+  if (visibleIdeaCount === 0) {
+    renderEmptyState(list, searchQuery);
+  }
 }
 
 function deleteIdea(index) {
@@ -181,4 +243,5 @@ function cancelEdit() {
 
 ideaSearchInput.addEventListener("input", renderIdeas);
 
+updateComposerState();
 renderIdeas();
