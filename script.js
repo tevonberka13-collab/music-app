@@ -1,19 +1,38 @@
+let ideas = JSON.parse(localStorage.getItem("musicIdeas")) || [];
+
+function renderIdeas() {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  ideas.forEach(function(idea) {
+    const item = document.createElement("li");
+    item.textContent = idea.title + ": " + idea.lyric;
+    list.appendChild(item);
+  });
+}
+
 function saveIdea() {
-  const title = document.getElementById("songTitle").value;
-  const lyric = document.getElementById("lyricIdea").value;
+  const title = document.getElementById("songTitle").value.trim();
+  const lyric = document.getElementById("lyricIdea").value.trim();
 
   if (!title || !lyric) {
     alert("Fill out both fields");
     return;
   }
 
-  const list = document.getElementById("list");
+  const newIdea = {
+    title: title,
+    lyric: lyric
+  };
 
-  const item = document.createElement("li");
-  item.textContent = title + ": " + lyric;
+  ideas.push(newIdea);
 
-  list.appendChild(item);
+  localStorage.setItem("musicIdeas", JSON.stringify(ideas));
 
   document.getElementById("songTitle").value = "";
   document.getElementById("lyricIdea").value = "";
+
+  renderIdeas();
 }
+
+renderIdeas();
