@@ -1,5 +1,13 @@
 let ideas = JSON.parse(localStorage.getItem("musicIdeas")) || [];
 const ideaCategories = ["Hook", "Verse", "Song Idea"];
+let editingIdeaIndex = null;
+
+const songTitleInput = document.getElementById("songTitle");
+const ideaCategorySelect = document.getElementById("ideaCategory");
+const lyricIdeaInput = document.getElementById("lyricIdea");
+const ideaSearchInput = document.getElementById("ideaSearch");
+const saveIdeaButton = document.getElementById("saveIdeaButton");
+const cancelEditButton = document.getElementById("cancelEditButton");
 
 function formatIdeaCategory(category) {
   if (ideaCategories.indexOf(category) === -1) {
@@ -34,13 +42,40 @@ function matchesIdeaSearch(idea, searchQuery) {
   return title.indexOf(searchQuery) !== -1 || lyric.indexOf(searchQuery) !== -1;
 }
 
+function saveIdeas() {
+  localStorage.setItem("musicIdeas", JSON.stringify(ideas));
+}
+
+function resetForm() {
+  editingIdeaIndex = null;
+  songTitleInput.value = "";
+  ideaCategorySelect.selectedIndex = 0;
+  lyricIdeaInput.value = "";
+  saveIdeaButton.textContent = "Save Idea";
+  cancelEditButton.hidden = true;
+}
+
+function startEditingIdea(index) {
+  const idea = ideas[index];
+
+  editingIdeaIndex = index;
+  songTitleInput.value = idea.title || "";
+  lyricIdeaInput.value = idea.lyric || "";
+
+  if (ideaCategories.indexOf(idea.category) === -1) {
+    ideaCategorySelect.selectedIndex = 0;
+  } else {
+    ideaCategorySelect.value = idea.category;
+  }
+
+  saveIdeaButton.textContent = "Update Idea";
+  cancelEditButton.hidden = false;
+  songTitleInput.focus();
+}
+
 function renderIdeas() {
   const list = document.getElementById("list");
-  const searchQuery = document
-    .getElementById("ideaSearch")
-    .value
-    .trim()
-    .toLowerCase();
+  const searchQuery = ideaSearchInput.value.trim().toLowerCase();
 
   list.innerHTML = "";
 
@@ -66,6 +101,17 @@ function renderIdeas() {
     ideaTimestamp.className = "idea-timestamp";
     ideaTimestamp.textContent = formatIdeaTimestamp(idea.createdAt);
 
+    const ideaActions = document.createElement("div");
+    ideaActions.className = "idea-actions";
+
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "edit-button";
+    editButton.textContent = "Edit";
+    editButton.addEventListener("click", function() {
+      startEditingIdea(index);
+    });
+
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
     deleteButton.className = "delete-button";
@@ -78,45 +124,61 @@ function renderIdeas() {
     ideaContent.appendChild(ideaText);
     ideaContent.appendChild(ideaTimestamp);
     item.appendChild(ideaContent);
-    item.appendChild(deleteButton);
+    ideaActions.appendChild(editButton);
+    ideaActions.appendChild(deleteButton);
+    item.appendChild(ideaActions);
     list.appendChild(item);
   });
 }
 
 function deleteIdea(index) {
   ideas.splice(index, 1);
-  localStorage.setItem("musicIdeas", JSON.stringify(ideas));
+
+  if (editingIdeaIndex === index) {
+    resetForm();
+  } else if (editingIdeaIndex !== null && editingIdeaIndex > index) {
+    editingIdeaIndex -= 1;
+  }
+
+  saveIdeas();
   renderIdeas();
 }
 
 function saveIdea() {
-  const title = document.getElementById("songTitle").value.trim();
-  const category = document.getElementById("ideaCategory").value;
-  const lyric = document.getElementById("lyricIdea").value.trim();
+  const title = songTitleInput.value.trim();
+  const category = ideaCategorySelect.value;
+  const lyric = lyricIdeaInput.value.trim();
 
   if (!title || !category || !lyric) {
     alert("Fill out all fields");
     return;
   }
 
-  const newIdea = {
-    title: title,
-    category: category,
-    lyric: lyric,
-    createdAt: new Date().toISOString()
-  };
+  if (editingIdeaIndex === null) {
+    ideas.push({
+      title: title,
+      category: category,
+      lyric: lyric,
+      createdAt: new Date().toISOString()
+    });
+  } else {
+    ideas[editingIdeaIndex] = {
+      ...ideas[editingIdeaIndex],
+      title: title,
+      category: category,
+      lyric: lyric
+    };
+  }
 
-  ideas.push(newIdea);
-
-  localStorage.setItem("musicIdeas", JSON.stringify(ideas));
-
-  document.getElementById("songTitle").value = "";
-  document.getElementById("ideaCategory").selectedIndex = 0;
-  document.getElementById("lyricIdea").value = "";
-
+  saveIdeas();
+  resetForm();
   renderIdeas();
 }
 
-document.getElementById("ideaSearch").addEventListener("input", renderIdeas);
+function cancelEdit() {
+  resetForm();
+}
+
+ideaSearchInput.addEventListener("input", renderIdeas);
 
 renderIdeas();

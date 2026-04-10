@@ -23,7 +23,8 @@
   <textarea id="lyricIdea" placeholder="Lyric idea"></textarea>
   <br><br>
 
-  <button onclick="saveIdea()">Save Idea</button>
+  <button id="saveIdeaButton" type="button" onclick="saveIdea()">Save Idea</button>
+  <button id="cancelEditButton" type="button" onclick="cancelEdit()" hidden>Cancel Edit</button>
 
   <h2>Saved Ideas</h2>
   <input id="ideaSearch" placeholder="Search by title or lyric text">

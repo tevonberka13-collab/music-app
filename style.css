@@ -44,6 +44,11 @@ button:hover {
   opacity: 0.9;
 }
 
+#cancelEditButton {
+  margin-left: 8px;
+  background: #757575;
+}
+
 ul {
   list-style: none;
   padding: 0;
@@ -90,8 +95,18 @@ li {
   font-size: 14px;
 }
 
+.idea-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.edit-button {
+  background: #455a64;
+}
+
 .delete-button {
   background: #c62828;
-  flex-shrink: 0;
   padding: 10px 14px;
 }
