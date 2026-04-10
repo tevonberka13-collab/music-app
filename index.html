@@ -13,4 +13,74 @@
         <p class="eyebrow">Studio Notebook</p>
         <h1>Music Idea App</h1>
         <p class="hero-text">
-          Capture hooks, shape verses, and keep ev
+          Capture hooks, shape verses, and keep every spark organized in one clean writing space.
+        </p>
+      </div>
+
+      <div class="hero-note">
+        <span class="hero-note-label">Flow</span>
+        <strong>Save the line before it disappears.</strong>
+      </div>
+    </section>
+
+    <div class="workspace">
+      <section class="panel composer-panel">
+        <div class="panel-heading">
+          <p class="eyebrow">Create</p>
+          <h2>Capture An Idea</h2>
+          <p id="composerStatus" class="panel-copy">
+            Add a title, choose a category, and lock in the lyric while it is still fresh.
+          </p>
+        </div>
+
+        <label class="field" for="songTitle">
+          <span class="field-label">Title</span>
+          <input id="songTitle" placeholder="Midnight chorus" autocomplete="off">
+        </label>
+
+        <label class="field" for="ideaCategory">
+          <span class="field-label">Category</span>
+          <select id="ideaCategory">
+            <option value="" selected disabled>Select a category</option>
+            <option value="Hook">Hook</option>
+            <option value="Verse">Verse</option>
+            <option value="Song Idea">Song Idea</option>
+          </select>
+        </label>
+
+        <label class="field" for="lyricIdea">
+          <span class="field-label">Lyric Or Note</span>
+          <textarea id="lyricIdea" placeholder="Write the hook, verse, or song concept here"></textarea>
+        </label>
+
+        <div class="button-row">
+          <button id="saveIdeaButton" type="button" onclick="saveIdea()">Save Idea</button>
+          <button id="cancelEditButton" type="button" onclick="cancelEdit()" hidden>Cancel Edit</button>
+        </div>
+      </section>
+
+      <section class="panel library-panel">
+        <div class="panel-heading panel-heading-row">
+          <div>
+            <p class="eyebrow">Library</p>
+            <h2>Saved Ideas</h2>
+            <p class="panel-copy">
+              Search your drafts by title or lyric text and jump back into any idea quickly.
+            </p>
+          </div>
+
+          <span id="ideaCount" class="idea-count">0 ideas</span>
+        </div>
+
+        <label class="field search-field" for="ideaSearch">
+          <span class="field-label">Search</span>
+          <input id="ideaSearch" placeholder="Search by title or lyric text" autocomplete="off">
+        </label>
+
+        <ul id="list" class="ideas-list"></ul>
+      </section>
+    </div>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
