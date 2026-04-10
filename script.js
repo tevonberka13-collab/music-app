@@ -1,6 +1,7 @@
 let ideas = JSON.parse(localStorage.getItem("musicIdeas")) || [];
 const ideaCategories = ["Hook", "Verse", "Song Idea"];
 let editingIdeaIndex = null;
+let activeCategoryFilter = "All";
 
 const songTitleInput = document.getElementById("songTitle");
 const ideaCategorySelect = document.getElementById("ideaCategory");
@@ -10,6 +11,7 @@ const saveIdeaButton = document.getElementById("saveIdeaButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
 const composerStatus = document.getElementById("composerStatus");
 const ideaCount = document.getElementById("ideaCount");
+const categoryFilters = document.getElementById("categoryFilters");
 
 function formatIdeaCategory(category) {
   if (ideaCategories.indexOf(category) === -1) {
@@ -42,6 +44,14 @@ function matchesIdeaSearch(idea, searchQuery) {
   const lyric = (idea.lyric || "").toLowerCase();
 
   return title.indexOf(searchQuery) !== -1 || lyric.indexOf(searchQuery) !== -1;
+}
+
+function matchesIdeaCategory(idea, categoryFilter) {
+  if (categoryFilter === "All") {
+    return true;
+  }
+
+  return idea.category === categoryFilter;
 }
 
 function saveIdeas() {
@@ -94,7 +104,7 @@ function updateIdeaCount(searchQuery, visibleIdeaCount) {
   const totalIdeas = ideas.length;
   const ideaLabel = totalIdeas === 1 ? "idea" : "ideas";
 
-  if (searchQuery) {
+  if (searchQuery || activeCategoryFilter !== "All") {
     ideaCount.textContent = visibleIdeaCount + " of " + totalIdeas + " " + ideaLabel;
     return;
   }
@@ -129,7 +139,7 @@ function renderIdeas() {
   list.innerHTML = "";
 
   ideas.forEach(function(idea, index) {
-    if (!matchesIdeaSearch(idea, searchQuery)) {
+    if (!matchesIdeaSearch(idea, searchQuery) || !matchesIdeaCategory(idea, activeCategoryFilter)) {
       return;
     }
 
@@ -242,6 +252,21 @@ function cancelEdit() {
 }
 
 ideaSearchInput.addEventListener("input", renderIdeas);
+categoryFilters.addEventListener("click", function(event) {
+  const filterButton = event.target.closest("[data-category-filter]");
+
+  if (!filterButton) {
+    return;
+  }
+
+  activeCategoryFilter = filterButton.dataset.categoryFilter;
+
+  Array.from(categoryFilters.querySelectorAll("[data-category-filter]")).forEach(function(button) {
+    button.classList.toggle("is-active", button === filterButton);
+  });
+
+  renderIdeas();
+});
 
 updateComposerState();
 renderIdeas();

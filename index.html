@@ -77,6 +77,16 @@
           <input id="ideaSearch" placeholder="Search by title or lyric text" autocomplete="off">
         </label>
 
+        <div class="field filter-field">
+          <span class="field-label">Category Filter</span>
+          <div id="categoryFilters" class="filter-row" role="group" aria-label="Filter ideas by category">
+            <button type="button" class="filter-button is-active" data-category-filter="All">All</button>
+            <button type="button" class="filter-button" data-category-filter="Hook">Hook</button>
+            <button type="button" class="filter-button" data-category-filter="Verse">Verse</button>
+            <button type="button" class="filter-button" data-category-filter="Song Idea">Song Idea</button>
+          </div>
+        </div>
+
         <ul id="list" class="ideas-list"></ul>
       </section>
     </div>
