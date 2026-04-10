@@ -12,12 +12,21 @@
   <input id="songTitle" placeholder="Song title">
   <br><br>
 
+  <select id="ideaCategory">
+    <option value="" selected disabled>Select a category</option>
+    <option value="Hook">Hook</option>
+    <option value="Verse">Verse</option>
+    <option value="Song Idea">Song Idea</option>
+  </select>
+  <br><br>
+
   <textarea id="lyricIdea" placeholder="Lyric idea"></textarea>
   <br><br>
 
   <button onclick="saveIdea()">Save Idea</button>
 
   <h2>Saved Ideas</h2>
+  <input id="ideaSearch" placeholder="Search by title or lyric text">
   <ul id="list"></ul>
 
   <script src="script.js"></script>

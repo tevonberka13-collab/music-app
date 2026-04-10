@@ -14,6 +14,7 @@ h2 {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   max-width: 500px;
@@ -55,4 +56,42 @@ li {
   margin-bottom: 10px;
   border-radius: 8px;
   border: 1px solid #ddd;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.idea-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.idea-category {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  background: #eceff1;
+  border-radius: 999px;
+  color: #333;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.idea-text {
+  display: block;
+  word-break: break-word;
+}
+
+.idea-timestamp {
+  display: block;
+  margin-top: 6px;
+  color: #666;
+  font-size: 14px;
+}
+
+.delete-button {
+  background: #c62828;
+  flex-shrink: 0;
+  padding: 10px 14px;
 }
