@@ -1,7 +1,32 @@
+function generateIdeaId() {
+  return "idea-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 let ideas = JSON.parse(localStorage.getItem("musicIdeas")) || [];
 const ideaCategories = ["Hook", "Verse", "Song Idea"];
 let editingIdeaIndex = null;
 let activeCategoryFilter = "All";
+let animatedIdeaId = null;
+let animatedIdeaMode = "";
+let clearAnimatedIdeaTimeoutId = null;
+let ideasWereNormalized = false;
+
+ideas = ideas.map(function(idea) {
+  if (idea && idea.id) {
+    return idea;
+  }
+
+  ideasWereNormalized = true;
+
+  return {
+    ...(idea && typeof idea === "object" ? idea : {}),
+    id: generateIdeaId()
+  };
+});
 
 const songTitleInput = document.getElementById("songTitle");
 const ideaCategorySelect = document.getElementById("ideaCategory");
@@ -56,6 +81,29 @@ function matchesIdeaCategory(idea, categoryFilter) {
 
 function saveIdeas() {
   localStorage.setItem("musicIdeas", JSON.stringify(ideas));
+}
+
+if (ideasWereNormalized) {
+  saveIdeas();
+}
+
+function setAnimatedIdea(id, mode) {
+  if (prefersReducedMotion()) {
+    return;
+  }
+
+  animatedIdeaId = id;
+  animatedIdeaMode = mode;
+
+  if (clearAnimatedIdeaTimeoutId !== null) {
+    window.clearTimeout(clearAnimatedIdeaTimeoutId);
+  }
+
+  clearAnimatedIdeaTimeoutId = window.setTimeout(function() {
+    animatedIdeaId = null;
+    animatedIdeaMode = "";
+    clearAnimatedIdeaTimeoutId = null;
+  }, 450);
 }
 
 function updateComposerState() {
@@ -114,7 +162,7 @@ function updateIdeaCount(searchQuery, visibleIdeaCount) {
 
 function renderEmptyState(list, searchQuery) {
   const emptyItem = document.createElement("li");
-  emptyItem.className = "empty-state";
+  emptyItem.className = "idea-card empty-state";
 
   const emptyTitle = document.createElement("h3");
   emptyTitle.className = "empty-state-title";
@@ -146,6 +194,11 @@ function renderIdeas() {
     visibleIdeaCount += 1;
 
     const item = document.createElement("li");
+    item.className = "idea-card";
+
+    if (idea.id === animatedIdeaId) {
+      item.classList.add(animatedIdeaMode === "updating" ? "is-updating" : "is-entering");
+    }
 
     const ideaContent = document.createElement("div");
     ideaContent.className = "idea-content";
@@ -182,7 +235,7 @@ function renderIdeas() {
     deleteButton.className = "delete-button";
     deleteButton.textContent = "Delete";
     deleteButton.addEventListener("click", function() {
-      deleteIdea(index);
+      deleteIdea(index, item);
     });
 
     ideaContent.appendChild(ideaCategory);
@@ -203,7 +256,7 @@ function renderIdeas() {
   }
 }
 
-function deleteIdea(index) {
+function finalizeDelete(index) {
   ideas.splice(index, 1);
 
   if (editingIdeaIndex === index) {
@@ -214,6 +267,22 @@ function deleteIdea(index) {
 
   saveIdeas();
   renderIdeas();
+}
+
+function deleteIdea(index, item) {
+  if (!item || prefersReducedMotion()) {
+    finalizeDelete(index);
+    return;
+  }
+
+  item.classList.add("is-removing");
+  item.querySelectorAll("button").forEach(function(button) {
+    button.disabled = true;
+  });
+
+  window.setTimeout(function() {
+    finalizeDelete(index);
+  }, 220);
 }
 
 function saveIdea() {
@@ -227,19 +296,28 @@ function saveIdea() {
   }
 
   if (editingIdeaIndex === null) {
-    ideas.push({
+    const newIdea = {
+      id: generateIdeaId(),
       title: title,
       category: category,
       lyric: lyric,
       createdAt: new Date().toISOString()
-    });
+    };
+
+    ideas.push(newIdea);
+    setAnimatedIdea(newIdea.id, "entering");
   } else {
+    const existingIdea = ideas[editingIdeaIndex];
+
     ideas[editingIdeaIndex] = {
-      ...ideas[editingIdeaIndex],
+      ...existingIdea,
+      id: existingIdea.id || generateIdeaId(),
       title: title,
       category: category,
       lyric: lyric
     };
+
+    setAnimatedIdea(ideas[editingIdeaIndex].id, "updating");
   }
 
   saveIdeas();
