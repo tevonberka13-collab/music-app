@@ -33,6 +33,8 @@
           </p>
         </div>
 
+        <div id="storageNotice" class="storage-notice" hidden></div>
+
         <label class="field" for="songTitle">
           <span class="field-label">Title</span>
           <input id="songTitle" placeholder="Midnight chorus" autocomplete="off">
@@ -56,7 +58,10 @@
         <div class="button-row">
           <button id="saveIdeaButton" type="button" onclick="saveIdea()">Save Idea</button>
           <button id="cancelEditButton" type="button" onclick="cancelEdit()" hidden>Cancel Edit</button>
+          <button id="importIdeasButton" type="button" onclick="openImportIdeas()">Import Ideas</button>
+          <button id="exportIdeasButton" type="button" onclick="exportIdeas()">Export Ideas</button>
         </div>
+        <input id="importIdeasInput" type="file" accept=".json,application/json" hidden>
       </section>
 
       <section class="panel library-panel">
@@ -65,7 +70,7 @@
             <p class="eyebrow">Library</p>
             <h2>Saved Ideas</h2>
             <p class="panel-copy">
-              Search your drafts by title or lyric text and jump back into any idea quickly.
+              Search your drafts by title or lyric text and jump back into any idea quickly. Ideas stay in this browser unless you export a backup.
             </p>
           </div>
 

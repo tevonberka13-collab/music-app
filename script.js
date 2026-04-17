@@ -1,7 +1,11 @@
-let ideas = JSON.parse(localStorage.getItem("musicIdeas")) || [];
 const ideaCategories = ["Hook", "Verse", "Song Idea"];
+const storageKey = "musicIdeas";
+let ideas = [];
 let editingIdeaIndex = null;
 let activeCategoryFilter = "All";
+let storageNoticeMessage =
+  "Ideas are currently saved only in this browser. Export a backup if you want a copy outside this device.";
+let storageNoticeIsWarning = false;
 
 const songTitleInput = document.getElementById("songTitle");
 const ideaCategorySelect = document.getElementById("ideaCategory");
@@ -9,9 +13,35 @@ const lyricIdeaInput = document.getElementById("lyricIdea");
 const ideaSearchInput = document.getElementById("ideaSearch");
 const saveIdeaButton = document.getElementById("saveIdeaButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
+const importIdeasInput = document.getElementById("importIdeasInput");
 const composerStatus = document.getElementById("composerStatus");
 const ideaCount = document.getElementById("ideaCount");
 const categoryFilters = document.getElementById("categoryFilters");
+const storageNotice = document.getElementById("storageNotice");
+
+function loadIdeas() {
+  const savedIdeas = localStorage.getItem(storageKey);
+
+  if (!savedIdeas) {
+    return [];
+  }
+
+  try {
+    const parsedIdeas = JSON.parse(savedIdeas);
+
+    if (!Array.isArray(parsedIdeas)) {
+      throw new Error("Saved ideas are not in the expected format.");
+    }
+
+    return parsedIdeas;
+  } catch (error) {
+    storageNoticeMessage =
+      "We could not read your previously saved ideas in this browser, so the app started with a clean slate. Export backups when you can.";
+    storageNoticeIsWarning = true;
+    console.error("Unable to read saved ideas from local storage.", error);
+    return [];
+  }
+}
 
 function formatIdeaCategory(category) {
   if (ideaCategories.indexOf(category) === -1) {
@@ -54,8 +84,75 @@ function matchesIdeaCategory(idea, categoryFilter) {
   return idea.category === categoryFilter;
 }
 
+function updateCategoryFilterButtons() {
+  Array.from(categoryFilters.querySelectorAll("[data-category-filter]")).forEach(function(button) {
+    button.classList.toggle("is-active", button.dataset.categoryFilter === activeCategoryFilter);
+  });
+}
+
+function setActiveCategoryFilter(categoryFilter) {
+  activeCategoryFilter = categoryFilter;
+  updateCategoryFilterButtons();
+}
+
+function normalizeImportedIdea(idea) {
+  if (!idea || typeof idea !== "object") {
+    return null;
+  }
+
+  const title = typeof idea.title === "string" ? idea.title.trim() : "";
+  const lyric = typeof idea.lyric === "string" ? idea.lyric.trim() : "";
+  const category = typeof idea.category === "string" ? idea.category : "";
+  const createdAt =
+    typeof idea.createdAt === "string" && !Number.isNaN(new Date(idea.createdAt).getTime())
+      ? idea.createdAt
+      : new Date().toISOString();
+
+  if (!title || !lyric) {
+    return null;
+  }
+
+  return {
+    title: title,
+    category: category,
+    lyric: lyric,
+    createdAt: createdAt
+  };
+}
+
+function parseImportedIdeas(importedContent) {
+  const parsedContent = JSON.parse(importedContent);
+  const rawIdeas = Array.isArray(parsedContent)
+    ? parsedContent
+    : parsedContent && Array.isArray(parsedContent.ideas)
+      ? parsedContent.ideas
+      : null;
+
+  if (!rawIdeas) {
+    throw new Error("That file does not look like a Music App backup.");
+  }
+
+  const normalizedIdeas = rawIdeas
+    .map(normalizeImportedIdea)
+    .filter(function(idea) {
+      return idea !== null;
+    });
+
+  if (normalizedIdeas.length === 0) {
+    throw new Error("That backup did not contain any valid ideas to import.");
+  }
+
+  return normalizedIdeas;
+}
+
 function saveIdeas() {
-  localStorage.setItem("musicIdeas", JSON.stringify(ideas));
+  localStorage.setItem(storageKey, JSON.stringify(ideas));
+}
+
+function updateStorageNotice() {
+  storageNotice.textContent = storageNoticeMessage;
+  storageNotice.hidden = false;
+  storageNotice.classList.toggle("is-warning", storageNoticeIsWarning);
 }
 
 function updateComposerState() {
@@ -204,6 +301,14 @@ function renderIdeas() {
 }
 
 function deleteIdea(index) {
+  const idea = ideas[index];
+  const ideaTitle = idea && idea.title ? "\"" + idea.title + "\"" : "this idea";
+  const confirmed = window.confirm("Delete " + ideaTitle + "? This cannot be undone.");
+
+  if (!confirmed) {
+    return;
+  }
+
   ideas.splice(index, 1);
 
   if (editingIdeaIndex === index) {
@@ -251,7 +356,80 @@ function cancelEdit() {
   resetForm();
 }
 
+function openImportIdeas() {
+  importIdeasInput.click();
+}
+
+function importIdeasFromFile(event) {
+  const selectedFile = event.target.files && event.target.files[0];
+
+  if (!selectedFile) {
+    return;
+  }
+
+  const fileReader = new FileReader();
+
+  fileReader.addEventListener("load", function(loadEvent) {
+    try {
+      const importedIdeas = parseImportedIdeas(loadEvent.target.result);
+      const shouldReplaceIdeas =
+        ideas.length === 0 ||
+        window.confirm("Import " + importedIdeas.length + " ideas and replace your current library?");
+
+      if (!shouldReplaceIdeas) {
+        return;
+      }
+
+      ideas = importedIdeas;
+      ideaSearchInput.value = "";
+      setActiveCategoryFilter("All");
+      resetForm();
+      saveIdeas();
+      renderIdeas();
+      alert("Imported " + importedIdeas.length + " ideas.");
+    } catch (error) {
+      alert(error.message || "We could not import that file.");
+    } finally {
+      importIdeasInput.value = "";
+    }
+  });
+
+  fileReader.addEventListener("error", function() {
+    alert("We could not read that file.");
+    importIdeasInput.value = "";
+  });
+
+  fileReader.readAsText(selectedFile);
+}
+
+function exportIdeas() {
+  if (ideas.length === 0) {
+    alert("Add at least one idea before exporting a backup.");
+    return;
+  }
+
+  const exportPayload = {
+    exportedAt: new Date().toISOString(),
+    totalIdeas: ideas.length,
+    ideas: ideas
+  };
+  const exportBlob = new Blob([JSON.stringify(exportPayload, null, 2)], {
+    type: "application/json"
+  });
+  const downloadUrl = URL.createObjectURL(exportBlob);
+  const downloadLink = document.createElement("a");
+  const dateLabel = new Date().toISOString().slice(0, 10);
+
+  downloadLink.href = downloadUrl;
+  downloadLink.download = "music-ideas-backup-" + dateLabel + ".json";
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  document.body.removeChild(downloadLink);
+  URL.revokeObjectURL(downloadUrl);
+}
+
 ideaSearchInput.addEventListener("input", renderIdeas);
+importIdeasInput.addEventListener("change", importIdeasFromFile);
 categoryFilters.addEventListener("click", function(event) {
   const filterButton = event.target.closest("[data-category-filter]");
 
@@ -259,14 +437,11 @@ categoryFilters.addEventListener("click", function(event) {
     return;
   }
 
-  activeCategoryFilter = filterButton.dataset.categoryFilter;
-
-  Array.from(categoryFilters.querySelectorAll("[data-category-filter]")).forEach(function(button) {
-    button.classList.toggle("is-active", button === filterButton);
-  });
-
+  setActiveCategoryFilter(filterButton.dataset.categoryFilter);
   renderIdeas();
 });
 
+ideas = loadIdeas();
+updateStorageNotice();
 updateComposerState();
 renderIdeas();

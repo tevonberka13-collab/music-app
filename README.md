@@ -6,8 +6,11 @@ A simple app I built to track song ideas, lyrics, and concepts.
 - Add song ideas
 - Categories (Hook, Verse, Song Idea)
 - Search
+- Category filter
 - Edit and delete ideas
 - Timestamps
+- Import ideas from a JSON backup
+- Export ideas as a JSON backup
 - Saves data locally
 
 ## Why I built this
