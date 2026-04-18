@@ -95,7 +95,7 @@ function setActiveCategoryFilter(categoryFilter) {
   updateCategoryFilterButtons();
 }
 
-function normalizeImportedIdea(idea) {
+function normalizeIdea(idea) {
   if (!idea || typeof idea !== "object") {
     return null;
   }
@@ -103,6 +103,7 @@ function normalizeImportedIdea(idea) {
   const title = typeof idea.title === "string" ? idea.title.trim() : "";
   const lyric = typeof idea.lyric === "string" ? idea.lyric.trim() : "";
   const category = typeof idea.category === "string" ? idea.category : "";
+  const pinned = idea.pinned === true;
   const createdAt =
     typeof idea.createdAt === "string" && !Number.isNaN(new Date(idea.createdAt).getTime())
       ? idea.createdAt
@@ -116,7 +117,8 @@ function normalizeImportedIdea(idea) {
     title: title,
     category: category,
     lyric: lyric,
-    createdAt: createdAt
+    createdAt: createdAt,
+    pinned: pinned
   };
 }
 
@@ -133,7 +135,7 @@ function parseImportedIdeas(importedContent) {
   }
 
   const normalizedIdeas = rawIdeas
-    .map(normalizeImportedIdea)
+    .map(normalizeIdea)
     .filter(function(idea) {
       return idea !== null;
     });
@@ -147,6 +149,16 @@ function parseImportedIdeas(importedContent) {
 
 function saveIdeas() {
   localStorage.setItem(storageKey, JSON.stringify(ideas));
+}
+
+function sortIdeasForDisplay(ideaEntries) {
+  return ideaEntries.sort(function(leftEntry, rightEntry) {
+    if (leftEntry.idea.pinned !== rightEntry.idea.pinned) {
+      return leftEntry.idea.pinned ? -1 : 1;
+    }
+
+    return leftEntry.index - rightEntry.index;
+  });
 }
 
 function updateStorageNotice() {
@@ -232,6 +244,7 @@ function renderIdeas() {
   const list = document.getElementById("list");
   const searchQuery = ideaSearchInput.value.trim().toLowerCase();
   let visibleIdeaCount = 0;
+  const visibleIdeas = [];
 
   list.innerHTML = "";
 
@@ -240,9 +253,20 @@ function renderIdeas() {
       return;
     }
 
+    visibleIdeas.push({
+      idea: idea,
+      index: index
+    });
+  });
+
+  sortIdeasForDisplay(visibleIdeas).forEach(function(entry) {
+    const idea = entry.idea;
+    const index = entry.index;
+
     visibleIdeaCount += 1;
 
     const item = document.createElement("li");
+    item.classList.toggle("is-pinned", idea.pinned === true);
 
     const ideaContent = document.createElement("div");
     ideaContent.className = "idea-content";
@@ -266,6 +290,14 @@ function renderIdeas() {
     const ideaActions = document.createElement("div");
     ideaActions.className = "idea-actions";
 
+    const pinButton = document.createElement("button");
+    pinButton.type = "button";
+    pinButton.className = idea.pinned ? "pin-button is-pinned" : "pin-button";
+    pinButton.textContent = idea.pinned ? "Pinned" : "Pin";
+    pinButton.addEventListener("click", function() {
+      togglePinnedIdea(index);
+    });
+
     const editButton = document.createElement("button");
     editButton.type = "button";
     editButton.className = "edit-button";
@@ -287,6 +319,7 @@ function renderIdeas() {
     ideaContent.appendChild(ideaText);
     ideaContent.appendChild(ideaTimestamp);
     item.appendChild(ideaContent);
+    ideaActions.appendChild(pinButton);
     ideaActions.appendChild(editButton);
     ideaActions.appendChild(deleteButton);
     item.appendChild(ideaActions);
@@ -321,6 +354,16 @@ function deleteIdea(index) {
   renderIdeas();
 }
 
+function togglePinnedIdea(index) {
+  ideas[index] = {
+    ...ideas[index],
+    pinned: ideas[index].pinned !== true
+  };
+
+  saveIdeas();
+  renderIdeas();
+}
+
 function saveIdea() {
   const title = songTitleInput.value.trim();
   const category = ideaCategorySelect.value;
@@ -336,7 +379,8 @@ function saveIdea() {
       title: title,
       category: category,
       lyric: lyric,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      pinned: false
     });
   } else {
     ideas[editingIdeaIndex] = {
@@ -441,7 +485,11 @@ categoryFilters.addEventListener("click", function(event) {
   renderIdeas();
 });
 
-ideas = loadIdeas();
+ideas = loadIdeas()
+  .map(normalizeIdea)
+  .filter(function(idea) {
+    return idea !== null;
+  });
 updateStorageNotice();
 updateComposerState();
 renderIdeas();
