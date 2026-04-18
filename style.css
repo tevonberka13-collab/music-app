@@ -384,6 +384,41 @@ button:active {
   margin-bottom: 20px;
 }
 
+.library-action-row {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+#exportVisibleIdeasButton {
+  background: linear-gradient(135deg, #25354f, #3b5477);
+  color: #ffffff;
+}
+
+.export-panel {
+  margin-bottom: 22px;
+  padding: 18px;
+  border: 1px solid rgba(59, 84, 119, 0.14);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(243, 247, 255, 0.98), rgba(255, 255, 255, 0.96));
+}
+
+.export-field {
+  margin-bottom: 0;
+}
+
+.export-output {
+  min-height: 240px;
+  font-family: "SFMono-Regular", "Menlo", "Monaco", "Courier New", monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.export-status {
+  margin-top: 12px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .ideas-list {
   display: grid;
   gap: 16px;
@@ -539,6 +574,10 @@ li.is-pinned {
   }
 
   .button-row button {
+    width: 100%;
+  }
+
+  .library-action-row button {
     width: 100%;
   }
 

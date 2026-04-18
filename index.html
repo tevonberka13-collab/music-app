@@ -100,6 +100,25 @@
           </select>
         </label>
 
+        <div class="library-action-row">
+          <button id="exportVisibleIdeasButton" type="button">Export Visible Ideas</button>
+        </div>
+
+        <div id="visibleIdeasExportPanel" class="export-panel" hidden>
+          <label class="field export-field" for="visibleIdeasExportOutput">
+            <span class="field-label">Visible Ideas Text Export</span>
+            <textarea
+              id="visibleIdeasExportOutput"
+              class="export-output"
+              readonly
+              aria-label="Visible ideas export text"
+            ></textarea>
+          </label>
+          <p id="visibleIdeasExportStatus" class="export-status">
+            Your currently visible ideas are ready to copy.
+          </p>
+        </div>
+
         <ul id="list" class="ideas-list"></ul>
       </section>
     </div>

@@ -9,6 +9,7 @@ A simple app I built to track song ideas, lyrics, and concepts.
 - Category filter
 - Sort by newest or oldest
 - Pin favorite ideas
+- Export currently visible ideas as clean text
 - Edit and delete ideas
 - Timestamps
 - Import ideas from a JSON backup

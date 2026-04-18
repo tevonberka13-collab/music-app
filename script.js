@@ -4,6 +4,7 @@ let ideas = [];
 let editingIdeaIndex = null;
 let activeCategoryFilter = "All";
 let activeSortOrder = "newest";
+let visibleIdeasExportIsOpen = false;
 let storageNoticeMessage =
   "Ideas are currently saved only in this browser. Export a backup if you want a copy outside this device.";
 let storageNoticeIsWarning = false;
@@ -19,6 +20,10 @@ const composerStatus = document.getElementById("composerStatus");
 const ideaCount = document.getElementById("ideaCount");
 const categoryFilters = document.getElementById("categoryFilters");
 const ideasSortOrderSelect = document.getElementById("ideasSortOrder");
+const exportVisibleIdeasButton = document.getElementById("exportVisibleIdeasButton");
+const visibleIdeasExportPanel = document.getElementById("visibleIdeasExportPanel");
+const visibleIdeasExportOutput = document.getElementById("visibleIdeasExportOutput");
+const visibleIdeasExportStatus = document.getElementById("visibleIdeasExportStatus");
 const storageNotice = document.getElementById("storageNotice");
 
 function loadIdeas() {
@@ -54,17 +59,21 @@ function formatIdeaCategory(category) {
 }
 
 function formatIdeaTimestamp(createdAt) {
+  return "Created " + describeIdeaTimestamp(createdAt);
+}
+
+function describeIdeaTimestamp(createdAt) {
   if (!createdAt) {
-    return "Created before timestamps were added";
+    return "before timestamps were added";
   }
 
   const createdDate = new Date(createdAt);
 
   if (Number.isNaN(createdDate.getTime())) {
-    return "Created date unavailable";
+    return "date unavailable";
   }
 
-  return "Created " + createdDate.toLocaleString();
+  return createdDate.toLocaleString();
 }
 
 function matchesIdeaSearch(idea, searchQuery) {
@@ -173,6 +182,65 @@ function sortIdeasForDisplay(ideaEntries) {
   });
 }
 
+function getVisibleIdeaEntries() {
+  const searchQuery = ideaSearchInput.value.trim().toLowerCase();
+  const visibleIdeas = [];
+
+  ideas.forEach(function(idea, index) {
+    if (!matchesIdeaSearch(idea, searchQuery) || !matchesIdeaCategory(idea, activeCategoryFilter)) {
+      return;
+    }
+
+    visibleIdeas.push({
+      idea: idea,
+      index: index
+    });
+  });
+
+  return sortIdeasForDisplay(visibleIdeas);
+}
+
+function buildVisibleIdeasExportText(visibleIdeaEntries) {
+  return visibleIdeaEntries
+    .map(function(entry, ideaPosition) {
+      const idea = entry.idea;
+      const sections = [
+        (ideaPosition + 1) + ". " + (idea.title || "Untitled idea"),
+        "Category: " + formatIdeaCategory(idea.category),
+        "Timestamp: " + describeIdeaTimestamp(idea.createdAt)
+      ];
+
+      if (idea.pinned) {
+        sections.push("Pinned: Yes");
+      }
+
+      sections.push("Lyric:");
+      sections.push(idea.lyric || "");
+
+      return sections.join("\n");
+    })
+    .join("\n\n--------------------\n\n");
+}
+
+function updateVisibleIdeasExport(visibleIdeaEntries) {
+  if (!visibleIdeasExportIsOpen) {
+    return;
+  }
+
+  if (visibleIdeaEntries.length === 0) {
+    visibleIdeasExportPanel.hidden = true;
+    visibleIdeasExportOutput.value = "";
+    visibleIdeasExportStatus.textContent =
+      "There are no visible ideas to export right now. Try changing your search or filters.";
+    return;
+  }
+
+  visibleIdeasExportPanel.hidden = false;
+  visibleIdeasExportOutput.value = buildVisibleIdeasExportText(visibleIdeaEntries);
+  visibleIdeasExportStatus.textContent =
+    "This export matches the ideas currently visible in the list. The text is selected so you can copy it.";
+}
+
 function updateStorageNotice() {
   storageNotice.textContent = storageNoticeMessage;
   storageNotice.hidden = false;
@@ -256,22 +324,11 @@ function renderIdeas() {
   const list = document.getElementById("list");
   const searchQuery = ideaSearchInput.value.trim().toLowerCase();
   let visibleIdeaCount = 0;
-  const visibleIdeas = [];
+  const visibleIdeas = getVisibleIdeaEntries();
 
   list.innerHTML = "";
 
-  ideas.forEach(function(idea, index) {
-    if (!matchesIdeaSearch(idea, searchQuery) || !matchesIdeaCategory(idea, activeCategoryFilter)) {
-      return;
-    }
-
-    visibleIdeas.push({
-      idea: idea,
-      index: index
-    });
-  });
-
-  sortIdeasForDisplay(visibleIdeas).forEach(function(entry) {
+  visibleIdeas.forEach(function(entry) {
     const idea = entry.idea;
     const index = entry.index;
 
@@ -343,6 +400,8 @@ function renderIdeas() {
   if (visibleIdeaCount === 0) {
     renderEmptyState(list, searchQuery);
   }
+
+  updateVisibleIdeasExport(visibleIdeas);
 }
 
 function deleteIdea(index) {
@@ -484,8 +543,25 @@ function exportIdeas() {
   URL.revokeObjectURL(downloadUrl);
 }
 
+function exportVisibleIdeasText() {
+  const visibleIdeaEntries = getVisibleIdeaEntries();
+
+  visibleIdeasExportIsOpen = true;
+  updateVisibleIdeasExport(visibleIdeaEntries);
+
+  if (visibleIdeaEntries.length === 0) {
+    alert("There are no visible ideas to export right now.");
+    return;
+  }
+
+  visibleIdeasExportOutput.focus();
+  visibleIdeasExportOutput.select();
+  visibleIdeasExportOutput.setSelectionRange(0, visibleIdeasExportOutput.value.length);
+}
+
 ideaSearchInput.addEventListener("input", renderIdeas);
 importIdeasInput.addEventListener("change", importIdeasFromFile);
+exportVisibleIdeasButton.addEventListener("click", exportVisibleIdeasText);
 categoryFilters.addEventListener("click", function(event) {
   const filterButton = event.target.closest("[data-category-filter]");
 
