@@ -3,6 +3,7 @@ const storageKey = "musicIdeas";
 let ideas = [];
 let editingIdeaIndex = null;
 let activeCategoryFilter = "All";
+let activeFavoritesOnly = false;
 let activeSortOrder = "newest";
 let visibleIdeasExportIsOpen = false;
 let storageNoticeMessage =
@@ -19,11 +20,17 @@ const importIdeasInput = document.getElementById("importIdeasInput");
 const composerStatus = document.getElementById("composerStatus");
 const ideaCount = document.getElementById("ideaCount");
 const categoryFilters = document.getElementById("categoryFilters");
+const favoritesOnlyButton = document.getElementById("favoritesOnlyButton");
 const ideasSortOrderSelect = document.getElementById("ideasSortOrder");
 const exportVisibleIdeasButton = document.getElementById("exportVisibleIdeasButton");
 const visibleIdeasExportPanel = document.getElementById("visibleIdeasExportPanel");
 const visibleIdeasExportOutput = document.getElementById("visibleIdeasExportOutput");
 const visibleIdeasExportStatus = document.getElementById("visibleIdeasExportStatus");
+const totalIdeasStat = document.getElementById("totalIdeasStat");
+const pinnedIdeasStat = document.getElementById("pinnedIdeasStat");
+const hookIdeasStat = document.getElementById("hookIdeasStat");
+const verseIdeasStat = document.getElementById("verseIdeasStat");
+const songIdeaIdeasStat = document.getElementById("songIdeaIdeasStat");
 const storageNotice = document.getElementById("storageNotice");
 
 function loadIdeas() {
@@ -95,6 +102,14 @@ function matchesIdeaCategory(idea, categoryFilter) {
   return idea.category === categoryFilter;
 }
 
+function matchesFavoritesFilter(idea) {
+  if (!activeFavoritesOnly) {
+    return true;
+  }
+
+  return idea.pinned === true;
+}
+
 function updateCategoryFilterButtons() {
   Array.from(categoryFilters.querySelectorAll("[data-category-filter]")).forEach(function(button) {
     button.classList.toggle("is-active", button.dataset.categoryFilter === activeCategoryFilter);
@@ -104,6 +119,16 @@ function updateCategoryFilterButtons() {
 function setActiveCategoryFilter(categoryFilter) {
   activeCategoryFilter = categoryFilter;
   updateCategoryFilterButtons();
+}
+
+function updateFavoritesOnlyButton() {
+  favoritesOnlyButton.classList.toggle("is-active", activeFavoritesOnly);
+  favoritesOnlyButton.setAttribute("aria-pressed", activeFavoritesOnly ? "true" : "false");
+}
+
+function toggleFavoritesOnlyFilter() {
+  activeFavoritesOnly = !activeFavoritesOnly;
+  updateFavoritesOnlyButton();
 }
 
 function normalizeIdea(idea) {
@@ -187,7 +212,11 @@ function getVisibleIdeaEntries() {
   const visibleIdeas = [];
 
   ideas.forEach(function(idea, index) {
-    if (!matchesIdeaSearch(idea, searchQuery) || !matchesIdeaCategory(idea, activeCategoryFilter)) {
+    if (
+      !matchesIdeaSearch(idea, searchQuery) ||
+      !matchesIdeaCategory(idea, activeCategoryFilter) ||
+      !matchesFavoritesFilter(idea)
+    ) {
       return;
     }
 
@@ -198,6 +227,45 @@ function getVisibleIdeaEntries() {
   });
 
   return sortIdeasForDisplay(visibleIdeas);
+}
+
+function getIdeaStats() {
+  return ideas.reduce(
+    function(stats, idea) {
+      stats.totalIdeas += 1;
+
+      if (idea.pinned) {
+        stats.pinnedIdeas += 1;
+      }
+
+      if (idea.category === "Hook") {
+        stats.hookIdeas += 1;
+      } else if (idea.category === "Verse") {
+        stats.verseIdeas += 1;
+      } else if (idea.category === "Song Idea") {
+        stats.songIdeaIdeas += 1;
+      }
+
+      return stats;
+    },
+    {
+      totalIdeas: 0,
+      pinnedIdeas: 0,
+      hookIdeas: 0,
+      verseIdeas: 0,
+      songIdeaIdeas: 0
+    }
+  );
+}
+
+function updateStatsSection() {
+  const stats = getIdeaStats();
+
+  totalIdeasStat.textContent = String(stats.totalIdeas);
+  pinnedIdeasStat.textContent = String(stats.pinnedIdeas);
+  hookIdeasStat.textContent = String(stats.hookIdeas);
+  verseIdeasStat.textContent = String(stats.verseIdeas);
+  songIdeaIdeasStat.textContent = String(stats.songIdeaIdeas);
 }
 
 function buildVisibleIdeasExportText(visibleIdeaEntries) {
@@ -293,7 +361,7 @@ function updateIdeaCount(searchQuery, visibleIdeaCount) {
   const totalIdeas = ideas.length;
   const ideaLabel = totalIdeas === 1 ? "idea" : "ideas";
 
-  if (searchQuery || activeCategoryFilter !== "All") {
+  if (searchQuery || activeCategoryFilter !== "All" || activeFavoritesOnly) {
     ideaCount.textContent = visibleIdeaCount + " of " + totalIdeas + " " + ideaLabel;
     return;
   }
@@ -327,6 +395,7 @@ function renderIdeas() {
   const visibleIdeas = getVisibleIdeaEntries();
 
   list.innerHTML = "";
+  updateStatsSection();
 
   visibleIdeas.forEach(function(entry) {
     const idea = entry.idea;
@@ -498,6 +567,8 @@ function importIdeasFromFile(event) {
       ideas = importedIdeas;
       ideaSearchInput.value = "";
       setActiveCategoryFilter("All");
+      activeFavoritesOnly = false;
+      updateFavoritesOnlyButton();
       resetForm();
       saveIdeas();
       renderIdeas();
@@ -572,6 +643,10 @@ categoryFilters.addEventListener("click", function(event) {
   setActiveCategoryFilter(filterButton.dataset.categoryFilter);
   renderIdeas();
 });
+favoritesOnlyButton.addEventListener("click", function() {
+  toggleFavoritesOnlyFilter();
+  renderIdeas();
+});
 ideasSortOrderSelect.addEventListener("change", function() {
   activeSortOrder = ideasSortOrderSelect.value === "oldest" ? "oldest" : "newest";
   renderIdeas();
@@ -584,4 +659,5 @@ ideas = loadIdeas()
   });
 updateStorageNotice();
 updateComposerState();
+updateFavoritesOnlyButton();
 renderIdeas();

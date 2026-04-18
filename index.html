@@ -23,6 +23,29 @@
       </div>
     </section>
 
+    <section class="stats-strip" aria-label="Idea stats">
+      <article class="stat-card">
+        <span class="stat-label">Total Ideas</span>
+        <strong id="totalIdeasStat" class="stat-value">0</strong>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Pinned Ideas</span>
+        <strong id="pinnedIdeasStat" class="stat-value">0</strong>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Hook Count</span>
+        <strong id="hookIdeasStat" class="stat-value">0</strong>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Verse Count</span>
+        <strong id="verseIdeasStat" class="stat-value">0</strong>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Song Idea Count</span>
+        <strong id="songIdeaIdeasStat" class="stat-value">0</strong>
+      </article>
+    </section>
+
     <div class="workspace">
       <section class="panel composer-panel">
         <div class="panel-heading">
@@ -89,6 +112,13 @@
             <button type="button" class="filter-button" data-category-filter="Hook">Hook</button>
             <button type="button" class="filter-button" data-category-filter="Verse">Verse</button>
             <button type="button" class="filter-button" data-category-filter="Song Idea">Song Idea</button>
+          </div>
+        </div>
+
+        <div class="field favorites-filter-field">
+          <span class="field-label">Favorites</span>
+          <div class="filter-row">
+            <button id="favoritesOnlyButton" type="button" class="filter-button">Favorites Only</button>
           </div>
         </div>
 

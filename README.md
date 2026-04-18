@@ -7,8 +7,10 @@ A simple app I built to track song ideas, lyrics, and concepts.
 - Categories (Hook, Verse, Song Idea)
 - Search
 - Category filter
+- Favorites-only filter
 - Sort by newest or oldest
 - Pin favorite ideas
+- Library stats dashboard
 - Export currently visible ideas as clean text
 - Edit and delete ideas
 - Timestamps
