@@ -3,6 +3,7 @@ const storageKey = "musicIdeas";
 let ideas = [];
 let editingIdeaIndex = null;
 let activeCategoryFilter = "All";
+let activeSortOrder = "newest";
 let storageNoticeMessage =
   "Ideas are currently saved only in this browser. Export a backup if you want a copy outside this device.";
 let storageNoticeIsWarning = false;
@@ -17,6 +18,7 @@ const importIdeasInput = document.getElementById("importIdeasInput");
 const composerStatus = document.getElementById("composerStatus");
 const ideaCount = document.getElementById("ideaCount");
 const categoryFilters = document.getElementById("categoryFilters");
+const ideasSortOrderSelect = document.getElementById("ideasSortOrder");
 const storageNotice = document.getElementById("storageNotice");
 
 function loadIdeas() {
@@ -151,10 +153,20 @@ function saveIdeas() {
   localStorage.setItem(storageKey, JSON.stringify(ideas));
 }
 
+function getIdeaCreatedAtTime(idea) {
+  return new Date(idea.createdAt).getTime();
+}
+
 function sortIdeasForDisplay(ideaEntries) {
   return ideaEntries.sort(function(leftEntry, rightEntry) {
     if (leftEntry.idea.pinned !== rightEntry.idea.pinned) {
       return leftEntry.idea.pinned ? -1 : 1;
+    }
+
+    const timeDifference = getIdeaCreatedAtTime(leftEntry.idea) - getIdeaCreatedAtTime(rightEntry.idea);
+
+    if (timeDifference !== 0) {
+      return activeSortOrder === "oldest" ? timeDifference : -timeDifference;
     }
 
     return leftEntry.index - rightEntry.index;
@@ -482,6 +494,10 @@ categoryFilters.addEventListener("click", function(event) {
   }
 
   setActiveCategoryFilter(filterButton.dataset.categoryFilter);
+  renderIdeas();
+});
+ideasSortOrderSelect.addEventListener("change", function() {
+  activeSortOrder = ideasSortOrderSelect.value === "oldest" ? "oldest" : "newest";
   renderIdeas();
 });
 

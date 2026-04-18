@@ -380,6 +380,10 @@ button:active {
   margin-bottom: 20px;
 }
 
+.sort-field {
+  margin-bottom: 20px;
+}
+
 .ideas-list {
   display: grid;
   gap: 16px;
