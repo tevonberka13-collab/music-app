@@ -9,11 +9,18 @@ let visibleIdeasExportIsOpen = false;
 let currentAuthSession = null;
 let currentAuthUser = null;
 let authIsBusy = false;
+let signedOutIdeasSnapshot = [];
 let storageNoticeMessage =
   "Ideas are currently saved only in this browser. Export a backup if you want a copy outside this device.";
 let storageNoticeIsWarning = false;
 
+const supabaseConfig = window.MUSIC_APP_SUPABASE_CONFIG || {};
 const supabaseClient = window.musicAppSupabase;
+const supabaseIdeasTableName =
+  typeof supabaseConfig.ideasTable === "string" && supabaseConfig.ideasTable.trim() !== ""
+    ? supabaseConfig.ideasTable.trim()
+    : "ideas";
+const supabaseIdeaSelectColumns = "id,user_id,title,category,lyric,pinned,created_at";
 const songTitleInput = document.getElementById("songTitle");
 const ideaCategorySelect = document.getElementById("ideaCategory");
 const lyricIdeaInput = document.getElementById("lyricIdea");
@@ -48,6 +55,10 @@ function isSupabaseReady() {
   return Boolean(supabaseClient);
 }
 
+function isUsingSupabaseIdeas() {
+  return isSupabaseReady() && currentAuthUser !== null;
+}
+
 function getAuthIdentityLabel(user) {
   if (!user) {
     return "Signed out";
@@ -80,13 +91,13 @@ function updateAuthUi() {
     authStatus.textContent =
       "Signed in as " +
       getAuthIdentityLabel(currentAuthUser) +
-      ". Your ideas still stay local for now until we connect the database.";
+      ". Your ideas load from Supabase for this account.";
     authEmailInput.value = currentAuthUser.email || authEmailInput.value;
     authPasswordInput.value = "";
   } else {
     authSessionBadge.textContent = "Signed out";
     authStatus.textContent =
-      "Sign up or log in with email and password. Your ideas still stay local for now until we connect the database.";
+      "Sign up or log in with email and password. When signed out, your ideas stay local in this browser.";
   }
 
   setAuthBusyState(authIsBusy);
@@ -96,6 +107,7 @@ function updateAuthState(session) {
   currentAuthSession = session || null;
   currentAuthUser = session && session.user ? session.user : null;
   updateAuthUi();
+  updateStorageNotice();
 }
 
 function getAuthCredentials() {
@@ -188,19 +200,17 @@ async function logOutOfSupabase() {
   setAuthBusyState(true);
 
   try {
-    const localIdeasBackup = JSON.stringify(ideas);
+    const localIdeasBackup = JSON.stringify(signedOutIdeasSnapshot);
     const { error } = await supabaseClient.auth.signOut();
 
     if (error) {
       throw error;
     }
 
-    if (localIdeasBackup) {
-      localStorage.setItem(storageKey, localIdeasBackup);
-    }
-
     updateAuthState(null);
-    authStatus.textContent = "You are logged out. Your local ideas are still here in this browser.";
+    localStorage.setItem(storageKey, localIdeasBackup);
+    restoreSignedOutIdeas();
+    authStatus.textContent = "You are logged out. Your local browser ideas are shown here again.";
   } catch (error) {
     authStatus.textContent = error.message || "We could not log you out right now.";
     alert(authStatus.textContent);
@@ -223,18 +233,53 @@ async function initializeAuth() {
 
   updateAuthState(data && data.session ? data.session : null);
 
-  supabaseClient.auth.onAuthStateChange(function(event, session) {
-    updateAuthState(session || null);
+  if (currentAuthUser) {
+    await loadIdeasFromSupabase(false);
+  }
 
-    if (event === "SIGNED_OUT") {
-      saveIdeas();
-      renderIdeas();
-      authStatus.textContent = "You are logged out. Your local ideas are still here in this browser.";
-    }
+  supabaseClient.auth.onAuthStateChange(function(event, session) {
+    window.setTimeout(function() {
+      handleAuthStateChange(event, session || null);
+    }, 0);
   });
 }
 
-function loadIdeas() {
+function normalizeIdeasCollection(rawIdeas) {
+  return rawIdeas
+    .map(normalizeIdea)
+    .filter(function(idea) {
+      return idea !== null;
+    });
+}
+
+function copyIdeasSnapshot(nextIdeas) {
+  return normalizeIdeasCollection(nextIdeas || []);
+}
+
+function updateSignedOutIdeasSnapshot(nextIdeas) {
+  signedOutIdeasSnapshot = copyIdeasSnapshot(nextIdeas);
+}
+
+function restoreSignedOutIdeas() {
+  ideas = copyIdeasSnapshot(signedOutIdeasSnapshot);
+  resetForm();
+  renderIdeas();
+}
+
+async function handleAuthStateChange(event, session) {
+  updateAuthState(session);
+
+  if (session && session.user) {
+    authStatus.textContent = "Signed in as " + getAuthIdentityLabel(session.user) + ". Loading your ideas from Supabase.";
+    await loadIdeasFromSupabase(event !== "INITIAL_SESSION");
+    return;
+  }
+
+  restoreSignedOutIdeas();
+  authStatus.textContent = "You are signed out. Your local browser ideas are shown here.";
+}
+
+function loadIdeasFromLocalStorage() {
   const savedIdeas = localStorage.getItem(storageKey);
 
   if (!savedIdeas) {
@@ -337,13 +382,26 @@ function normalizeIdea(idea) {
     return null;
   }
 
+  const id = typeof idea.id === "string" || typeof idea.id === "number" ? idea.id : null;
+  const userId =
+    typeof idea.userId === "string"
+      ? idea.userId
+      : typeof idea.user_id === "string"
+        ? idea.user_id
+        : null;
   const title = typeof idea.title === "string" ? idea.title.trim() : "";
   const lyric = typeof idea.lyric === "string" ? idea.lyric.trim() : "";
   const category = typeof idea.category === "string" ? idea.category : "";
   const pinned = idea.pinned === true;
-  const createdAt =
-    typeof idea.createdAt === "string" && !Number.isNaN(new Date(idea.createdAt).getTime())
+  const rawCreatedAt =
+    typeof idea.createdAt === "string"
       ? idea.createdAt
+      : typeof idea.created_at === "string"
+        ? idea.created_at
+        : null;
+  const createdAt =
+    typeof rawCreatedAt === "string" && !Number.isNaN(new Date(rawCreatedAt).getTime())
+      ? rawCreatedAt
       : new Date().toISOString();
 
   if (!title || !lyric) {
@@ -351,6 +409,8 @@ function normalizeIdea(idea) {
   }
 
   return {
+    id: id,
+    userId: userId,
     title: title,
     category: category,
     lyric: lyric,
@@ -371,11 +431,7 @@ function parseImportedIdeas(importedContent) {
     throw new Error("That file does not look like a Music App backup.");
   }
 
-  const normalizedIdeas = rawIdeas
-    .map(normalizeIdea)
-    .filter(function(idea) {
-      return idea !== null;
-    });
+  const normalizedIdeas = normalizeIdeasCollection(rawIdeas);
 
   if (normalizedIdeas.length === 0) {
     throw new Error("That backup did not contain any valid ideas to import.");
@@ -385,7 +441,103 @@ function parseImportedIdeas(importedContent) {
 }
 
 function saveIdeas() {
+  if (isUsingSupabaseIdeas()) {
+    return;
+  }
+
   localStorage.setItem(storageKey, JSON.stringify(ideas));
+  updateSignedOutIdeasSnapshot(ideas);
+}
+
+function createSupabaseIdeaPayload(idea) {
+  return {
+    user_id: currentAuthUser.id,
+    title: idea.title,
+    category: idea.category,
+    lyric: idea.lyric,
+    pinned: idea.pinned === true,
+    created_at: idea.createdAt
+  };
+}
+
+function getSupabaseIdeaErrorMessage(actionLabel, error) {
+  const baseMessage = "We could not " + actionLabel + " in Supabase right now.";
+
+  if (!error || !error.message) {
+    return baseMessage;
+  }
+
+  return (
+    baseMessage +
+    " Make sure your \"" +
+    supabaseIdeasTableName +
+    "\" table includes id, user_id, title, category, lyric, pinned, and created_at."
+  );
+}
+
+async function loadIdeasFromSupabase(showAlertOnError) {
+  if (!isUsingSupabaseIdeas()) {
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from(supabaseIdeasTableName)
+      .select(supabaseIdeaSelectColumns)
+      .eq("user_id", currentAuthUser.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    ideas = normalizeIdeasCollection(data || []);
+    resetForm();
+    renderIdeas();
+    authStatus.textContent =
+      "Signed in as " + getAuthIdentityLabel(currentAuthUser) + ". Your ideas are now loading from Supabase.";
+  } catch (error) {
+    ideas = [];
+    resetForm();
+    renderIdeas();
+    authStatus.textContent = getSupabaseIdeaErrorMessage("load your ideas", error);
+
+    if (showAlertOnError) {
+      alert(authStatus.textContent);
+    }
+  }
+}
+
+async function createIdeaInSupabase(idea) {
+  const { error } = await supabaseClient.from(supabaseIdeasTableName).insert(createSupabaseIdeaPayload(idea));
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function updateIdeaInSupabase(ideaId, updates) {
+  const { error } = await supabaseClient
+    .from(supabaseIdeasTableName)
+    .update(updates)
+    .eq("id", ideaId)
+    .eq("user_id", currentAuthUser.id);
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function deleteIdeaFromSupabase(ideaId) {
+  const { error } = await supabaseClient
+    .from(supabaseIdeasTableName)
+    .delete()
+    .eq("id", ideaId)
+    .eq("user_id", currentAuthUser.id);
+
+  if (error) {
+    throw error;
+  }
 }
 
 function getIdeaCreatedAtTime(idea) {
@@ -511,6 +663,14 @@ function updateVisibleIdeasExport(visibleIdeaEntries) {
 }
 
 function updateStorageNotice() {
+  if (isUsingSupabaseIdeas()) {
+    storageNotice.textContent =
+      "Signed-in mode: ideas load from your private Supabase account. Your signed-out browser ideas stay separate on this device.";
+    storageNotice.hidden = false;
+    storageNotice.classList.remove("is-warning");
+    return;
+  }
+
   storageNotice.textContent = storageNoticeMessage;
   storageNotice.hidden = false;
   storageNotice.classList.toggle("is-warning", storageNoticeIsWarning);
@@ -674,12 +834,28 @@ function renderIdeas() {
   updateVisibleIdeasExport(visibleIdeas);
 }
 
-function deleteIdea(index) {
+async function deleteIdea(index) {
   const idea = ideas[index];
   const ideaTitle = idea && idea.title ? "\"" + idea.title + "\"" : "this idea";
   const confirmed = window.confirm("Delete " + ideaTitle + "? This cannot be undone.");
 
   if (!confirmed) {
+    return;
+  }
+
+  if (isUsingSupabaseIdeas()) {
+    if (!idea || idea.id === null) {
+      alert("This idea is missing its Supabase id, so it cannot be deleted yet.");
+      return;
+    }
+
+    try {
+      await deleteIdeaFromSupabase(idea.id);
+      await loadIdeasFromSupabase(true);
+    } catch (error) {
+      alert(getSupabaseIdeaErrorMessage("delete that idea", error));
+    }
+
     return;
   }
 
@@ -695,7 +871,27 @@ function deleteIdea(index) {
   renderIdeas();
 }
 
-function togglePinnedIdea(index) {
+async function togglePinnedIdea(index) {
+  if (isUsingSupabaseIdeas()) {
+    const idea = ideas[index];
+
+    if (!idea || idea.id === null) {
+      alert("This idea is missing its Supabase id, so it cannot be pinned yet.");
+      return;
+    }
+
+    try {
+      await updateIdeaInSupabase(idea.id, {
+        pinned: idea.pinned !== true
+      });
+      await loadIdeasFromSupabase(true);
+    } catch (error) {
+      alert(getSupabaseIdeaErrorMessage("update that pin", error));
+    }
+
+    return;
+  }
+
   ideas[index] = {
     ...ideas[index],
     pinned: ideas[index].pinned !== true
@@ -705,13 +901,47 @@ function togglePinnedIdea(index) {
   renderIdeas();
 }
 
-function saveIdea() {
+async function saveIdea() {
   const title = songTitleInput.value.trim();
   const category = ideaCategorySelect.value;
   const lyric = lyricIdeaInput.value.trim();
 
   if (!title || !category || !lyric) {
     alert("Fill out all fields");
+    return;
+  }
+
+  if (isUsingSupabaseIdeas()) {
+    try {
+      if (editingIdeaIndex === null) {
+        await createIdeaInSupabase({
+          title: title,
+          category: category,
+          lyric: lyric,
+          createdAt: new Date().toISOString(),
+          pinned: false
+        });
+      } else {
+        const idea = ideas[editingIdeaIndex];
+
+        if (!idea || idea.id === null) {
+          alert("This idea is missing its Supabase id, so it cannot be updated yet.");
+          return;
+        }
+
+        await updateIdeaInSupabase(idea.id, {
+          title: title,
+          category: category,
+          lyric: lyric
+        });
+      }
+
+      resetForm();
+      await loadIdeasFromSupabase(true);
+    } catch (error) {
+      alert(getSupabaseIdeaErrorMessage("save that idea", error));
+    }
+
     return;
   }
 
@@ -746,6 +976,12 @@ function openImportIdeas() {
 }
 
 function importIdeasFromFile(event) {
+  if (isUsingSupabaseIdeas()) {
+    alert("Importing directly into Supabase is not connected yet. Please log out if you want to import browser-local ideas.");
+    importIdeasInput.value = "";
+    return;
+  }
+
   const selectedFile = event.target.files && event.target.files[0];
 
   if (!selectedFile) {
@@ -856,11 +1092,8 @@ ideasSortOrderSelect.addEventListener("change", function() {
   renderIdeas();
 });
 
-ideas = loadIdeas()
-  .map(normalizeIdea)
-  .filter(function(idea) {
-    return idea !== null;
-  });
+ideas = normalizeIdeasCollection(loadIdeasFromLocalStorage());
+updateSignedOutIdeasSnapshot(ideas);
 updateStorageNotice();
 updateComposerState();
 updateFavoritesOnlyButton();
