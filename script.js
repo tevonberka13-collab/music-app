@@ -38,6 +38,7 @@ const appFeedback = document.getElementById("appFeedback");
 const saveIdeaButton = document.getElementById("saveIdeaButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
 const importIdeasInput = document.getElementById("importIdeasInput");
+const exportIdeasCsvButton = document.getElementById("exportIdeasCsvButton");
 const composerStatus = document.getElementById("composerStatus");
 const ideaCount = document.getElementById("ideaCount");
 const categoryFilters = document.getElementById("categoryFilters");
@@ -1124,6 +1125,54 @@ function exportIdeas() {
   document.body.removeChild(downloadLink);
   URL.revokeObjectURL(downloadUrl);
   setAppFeedback("Backup exported as JSON.", "success");
+}
+
+function escapeCsvValue(value) {
+  const stringValue = value === null || value === undefined ? "" : String(value);
+
+  if (stringValue.indexOf("\"") !== -1 || stringValue.indexOf(",") !== -1 || stringValue.indexOf("\n") !== -1) {
+    return "\"" + stringValue.replace(/"/g, "\"\"") + "\"";
+  }
+
+  return stringValue;
+}
+
+function exportIdeasCsv() {
+  if (ideas.length === 0) {
+    setAppFeedback("Add at least one idea before exporting a CSV file.", "info");
+    return;
+  }
+
+  const csvHeaders = ["Title", "Category", "Lyric", "Created At", "Pinned"];
+  const csvRows = ideas.map(function(idea) {
+    return [
+      idea.title || "",
+      formatIdeaCategory(idea.category),
+      idea.lyric || "",
+      describeIdeaTimestamp(idea.createdAt),
+      idea.pinned ? "Yes" : "No"
+    ];
+  });
+  const csvContent = [csvHeaders]
+    .concat(csvRows)
+    .map(function(row) {
+      return row.map(escapeCsvValue).join(",");
+    })
+    .join("\n");
+  const csvBlob = new Blob(["\uFEFF" + csvContent], {
+    type: "text/csv;charset=utf-8;"
+  });
+  const downloadUrl = URL.createObjectURL(csvBlob);
+  const downloadLink = document.createElement("a");
+  const dateLabel = new Date().toISOString().slice(0, 10);
+
+  downloadLink.href = downloadUrl;
+  downloadLink.download = "music-ideas-" + dateLabel + ".csv";
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  document.body.removeChild(downloadLink);
+  URL.revokeObjectURL(downloadUrl);
+  setAppFeedback("Ideas exported as a CSV file you can open in Excel.", "success");
 }
 
 function exportVisibleIdeasText() {

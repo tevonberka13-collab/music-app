@@ -13,6 +13,7 @@ A simple app I built to track song ideas, lyrics, and concepts.
 - Email sign up, log in, and log out with Supabase Auth
 - Library stats dashboard
 - Export currently visible ideas as clean text
+- Export ideas as CSV for Excel
 - Edit and delete ideas
 - Timestamps
 - Import ideas from a JSON backup
