@@ -6,14 +6,25 @@ let activeCategoryFilter = "All";
 let activeFavoritesOnly = false;
 let activeSortOrder = "newest";
 let visibleIdeasExportIsOpen = false;
+let currentAuthSession = null;
+let currentAuthUser = null;
+let authIsBusy = false;
 let storageNoticeMessage =
   "Ideas are currently saved only in this browser. Export a backup if you want a copy outside this device.";
 let storageNoticeIsWarning = false;
 
+const supabaseClient = window.musicAppSupabase;
 const songTitleInput = document.getElementById("songTitle");
 const ideaCategorySelect = document.getElementById("ideaCategory");
 const lyricIdeaInput = document.getElementById("lyricIdea");
 const ideaSearchInput = document.getElementById("ideaSearch");
+const authEmailInput = document.getElementById("authEmail");
+const authPasswordInput = document.getElementById("authPassword");
+const signUpButton = document.getElementById("signUpButton");
+const logInButton = document.getElementById("logInButton");
+const logOutButton = document.getElementById("logOutButton");
+const authStatus = document.getElementById("authStatus");
+const authSessionBadge = document.getElementById("authSessionBadge");
 const saveIdeaButton = document.getElementById("saveIdeaButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
 const importIdeasInput = document.getElementById("importIdeasInput");
@@ -32,6 +43,196 @@ const hookIdeasStat = document.getElementById("hookIdeasStat");
 const verseIdeasStat = document.getElementById("verseIdeasStat");
 const songIdeaIdeasStat = document.getElementById("songIdeaIdeasStat");
 const storageNotice = document.getElementById("storageNotice");
+
+function isSupabaseReady() {
+  return Boolean(supabaseClient);
+}
+
+function getAuthIdentityLabel(user) {
+  if (!user) {
+    return "Signed out";
+  }
+
+  return user.email || "Signed in";
+}
+
+function setAuthBusyState(isBusy) {
+  authIsBusy = isBusy;
+
+  authEmailInput.disabled = isBusy;
+  authPasswordInput.disabled = isBusy;
+  signUpButton.disabled = isBusy || !isSupabaseReady() || currentAuthUser !== null;
+  logInButton.disabled = isBusy || !isSupabaseReady() || currentAuthUser !== null;
+  logOutButton.disabled = isBusy || !isSupabaseReady() || currentAuthUser === null;
+}
+
+function updateAuthUi() {
+  if (!isSupabaseReady()) {
+    authSessionBadge.textContent = "Supabase not ready";
+    authStatus.textContent =
+      "Supabase is not configured yet. Add your project URL and publishable key in supabase-config.js first.";
+    setAuthBusyState(false);
+    return;
+  }
+
+  if (currentAuthUser) {
+    authSessionBadge.textContent = "Signed in";
+    authStatus.textContent =
+      "Signed in as " +
+      getAuthIdentityLabel(currentAuthUser) +
+      ". Your ideas still stay local for now until we connect the database.";
+    authEmailInput.value = currentAuthUser.email || authEmailInput.value;
+    authPasswordInput.value = "";
+  } else {
+    authSessionBadge.textContent = "Signed out";
+    authStatus.textContent =
+      "Sign up or log in with email and password. Your ideas still stay local for now until we connect the database.";
+  }
+
+  setAuthBusyState(authIsBusy);
+}
+
+function updateAuthState(session) {
+  currentAuthSession = session || null;
+  currentAuthUser = session && session.user ? session.user : null;
+  updateAuthUi();
+}
+
+function getAuthCredentials() {
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+
+  if (!email || !password) {
+    alert("Enter both email and password.");
+    return null;
+  }
+
+  return {
+    email: email,
+    password: password
+  };
+}
+
+async function signUpWithSupabase() {
+  const credentials = getAuthCredentials();
+
+  if (!credentials || !isSupabaseReady()) {
+    return;
+  }
+
+  setAuthBusyState(true);
+
+  try {
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: credentials.email,
+      password: credentials.password
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    updateAuthState(data.session || currentAuthSession);
+    authPasswordInput.value = "";
+
+    if (data.session) {
+      authStatus.textContent =
+        "Your account was created and you are signed in as " + getAuthIdentityLabel(data.user) + ".";
+    } else {
+      authStatus.textContent =
+        "Your account was created. Check your email for the confirmation link, then log in here.";
+    }
+  } catch (error) {
+    authStatus.textContent = error.message || "We could not sign you up right now.";
+    alert(authStatus.textContent);
+  } finally {
+    setAuthBusyState(false);
+  }
+}
+
+async function logInWithSupabase() {
+  const credentials = getAuthCredentials();
+
+  if (!credentials || !isSupabaseReady()) {
+    return;
+  }
+
+  setAuthBusyState(true);
+
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: credentials.email,
+      password: credentials.password
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    updateAuthState(data.session || null);
+    authPasswordInput.value = "";
+    authStatus.textContent = "You are now logged in as " + getAuthIdentityLabel(data.user) + ".";
+  } catch (error) {
+    authStatus.textContent = error.message || "We could not log you in right now.";
+    alert(authStatus.textContent);
+  } finally {
+    setAuthBusyState(false);
+  }
+}
+
+async function logOutOfSupabase() {
+  if (!isSupabaseReady() || !currentAuthUser) {
+    return;
+  }
+
+  setAuthBusyState(true);
+
+  try {
+    const localIdeasBackup = JSON.stringify(ideas);
+    const { error } = await supabaseClient.auth.signOut();
+
+    if (error) {
+      throw error;
+    }
+
+    if (localIdeasBackup) {
+      localStorage.setItem(storageKey, localIdeasBackup);
+    }
+
+    updateAuthState(null);
+    authStatus.textContent = "You are logged out. Your local ideas are still here in this browser.";
+  } catch (error) {
+    authStatus.textContent = error.message || "We could not log you out right now.";
+    alert(authStatus.textContent);
+  } finally {
+    setAuthBusyState(false);
+  }
+}
+
+async function initializeAuth() {
+  if (!isSupabaseReady()) {
+    updateAuthUi();
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+
+  if (error) {
+    authStatus.textContent = error.message || "We could not read your auth session.";
+  }
+
+  updateAuthState(data && data.session ? data.session : null);
+
+  supabaseClient.auth.onAuthStateChange(function(event, session) {
+    updateAuthState(session || null);
+
+    if (event === "SIGNED_OUT") {
+      saveIdeas();
+      renderIdeas();
+      authStatus.textContent = "You are logged out. Your local ideas are still here in this browser.";
+    }
+  });
+}
 
 function loadIdeas() {
   const savedIdeas = localStorage.getItem(storageKey);
@@ -633,6 +834,9 @@ function exportVisibleIdeasText() {
 ideaSearchInput.addEventListener("input", renderIdeas);
 importIdeasInput.addEventListener("change", importIdeasFromFile);
 exportVisibleIdeasButton.addEventListener("click", exportVisibleIdeasText);
+signUpButton.addEventListener("click", signUpWithSupabase);
+logInButton.addEventListener("click", logInWithSupabase);
+logOutButton.addEventListener("click", logOutOfSupabase);
 categoryFilters.addEventListener("click", function(event) {
   const filterButton = event.target.closest("[data-category-filter]");
 
@@ -661,3 +865,4 @@ updateStorageNotice();
 updateComposerState();
 updateFavoritesOnlyButton();
 renderIdeas();
+initializeAuth();

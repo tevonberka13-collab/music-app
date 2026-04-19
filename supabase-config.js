@@ -1,4 +1,4 @@
 window.MUSIC_APP_SUPABASE_CONFIG = {
-  url: "PASTE_YOUR_SUPABASE_URL_HERE",
-  anonKey: "PASTE_YOUR_SUPABASE_ANON_KEY_HERE"
+  url: "https://hxniocautjfonicfjqkc.supabase.co",
+  anonKey: "sb_publishable_eODkSOoP6cAVwozCbSA2ag_rrlnX9_E"
 };

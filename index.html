@@ -23,6 +23,42 @@
       </div>
     </section>
 
+    <section class="panel auth-panel">
+      <div class="panel-heading panel-heading-row auth-heading-row">
+        <div>
+          <p class="eyebrow">Account</p>
+          <h2>Sign In To Supabase</h2>
+          <p id="authStatus" class="panel-copy">
+            Sign up or log in with email and password. Your ideas still stay local for now until we connect the database.
+          </p>
+        </div>
+
+        <span id="authSessionBadge" class="idea-count auth-session-badge">Signed out</span>
+      </div>
+
+      <div class="auth-grid">
+        <label class="field" for="authEmail">
+          <span class="field-label">Email</span>
+          <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email">
+        </label>
+
+        <label class="field" for="authPassword">
+          <span class="field-label">Password</span>
+          <input id="authPassword" type="password" placeholder="At least 6 characters" autocomplete="current-password">
+        </label>
+      </div>
+
+      <div class="button-row auth-button-row">
+        <button id="signUpButton" type="button">Sign Up</button>
+        <button id="logInButton" type="button">Log In</button>
+        <button id="logOutButton" type="button">Log Out</button>
+      </div>
+
+      <p class="auth-help">
+        If Supabase email confirmation is turned on, sign up may ask you to confirm your email before your first login.
+      </p>
+    </section>
+
     <section class="stats-strip" aria-label="Idea stats">
       <article class="stat-card">
         <span class="stat-label">Total Ideas</span>

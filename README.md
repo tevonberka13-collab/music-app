@@ -10,6 +10,7 @@ A simple app I built to track song ideas, lyrics, and concepts.
 - Favorites-only filter
 - Sort by newest or oldest
 - Pin favorite ideas
+- Email sign up, log in, and log out with Supabase Auth
 - Library stats dashboard
 - Export currently visible ideas as clean text
 - Edit and delete ideas
