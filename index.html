@@ -33,7 +33,10 @@
           </p>
         </div>
 
-        <span id="authSessionBadge" class="idea-count auth-session-badge">Signed out</span>
+        <div class="auth-session-meta">
+          <span id="authSessionBadge" class="idea-count auth-session-badge">Signed out</span>
+          <p id="authUserEmail" class="auth-user-email" hidden></p>
+        </div>
       </div>
 
       <div class="auth-grid">
@@ -57,6 +60,8 @@
       <p class="auth-help">
         If Supabase email confirmation is turned on, sign up may ask you to confirm your email before your first login.
       </p>
+
+      <div id="appFeedback" class="app-feedback" hidden></div>
     </section>
 
     <section class="stats-strip" aria-label="Idea stats">
@@ -184,6 +189,8 @@
             Your currently visible ideas are ready to copy.
           </p>
         </div>
+
+        <p id="libraryStatus" class="library-status" hidden></p>
 
         <ul id="list" class="ideas-list"></ul>
       </section>

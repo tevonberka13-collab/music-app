@@ -10,6 +10,7 @@ let currentAuthSession = null;
 let currentAuthUser = null;
 let authIsBusy = false;
 let signedOutIdeasSnapshot = [];
+let ideasAreLoading = false;
 let storageNoticeMessage =
   "Ideas are currently saved only in this browser. Export a backup if you want a copy outside this device.";
 let storageNoticeIsWarning = false;
@@ -32,6 +33,8 @@ const logInButton = document.getElementById("logInButton");
 const logOutButton = document.getElementById("logOutButton");
 const authStatus = document.getElementById("authStatus");
 const authSessionBadge = document.getElementById("authSessionBadge");
+const authUserEmail = document.getElementById("authUserEmail");
+const appFeedback = document.getElementById("appFeedback");
 const saveIdeaButton = document.getElementById("saveIdeaButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
 const importIdeasInput = document.getElementById("importIdeasInput");
@@ -44,6 +47,7 @@ const exportVisibleIdeasButton = document.getElementById("exportVisibleIdeasButt
 const visibleIdeasExportPanel = document.getElementById("visibleIdeasExportPanel");
 const visibleIdeasExportOutput = document.getElementById("visibleIdeasExportOutput");
 const visibleIdeasExportStatus = document.getElementById("visibleIdeasExportStatus");
+const libraryStatus = document.getElementById("libraryStatus");
 const totalIdeasStat = document.getElementById("totalIdeasStat");
 const pinnedIdeasStat = document.getElementById("pinnedIdeasStat");
 const hookIdeasStat = document.getElementById("hookIdeasStat");
@@ -67,6 +71,37 @@ function getAuthIdentityLabel(user) {
   return user.email || "Signed in";
 }
 
+function setAppFeedback(message, tone) {
+  if (!message) {
+    appFeedback.hidden = true;
+    appFeedback.textContent = "";
+    appFeedback.className = "app-feedback";
+    return;
+  }
+
+  appFeedback.hidden = false;
+  appFeedback.textContent = message;
+  appFeedback.className = "app-feedback is-" + (tone || "info");
+}
+
+function setLibraryStatus(message, isLoading) {
+  if (!message) {
+    libraryStatus.hidden = true;
+    libraryStatus.textContent = "";
+    libraryStatus.classList.remove("is-loading");
+    return;
+  }
+
+  libraryStatus.hidden = false;
+  libraryStatus.textContent = message;
+  libraryStatus.classList.toggle("is-loading", isLoading === true);
+}
+
+function setIdeasLoadingState(isLoading, message) {
+  ideasAreLoading = isLoading;
+  setLibraryStatus(message || "", isLoading);
+}
+
 function setAuthBusyState(isBusy) {
   authIsBusy = isBusy;
 
@@ -88,6 +123,8 @@ function updateAuthUi() {
 
   if (currentAuthUser) {
     authSessionBadge.textContent = "Signed in";
+    authUserEmail.hidden = false;
+    authUserEmail.textContent = currentAuthUser.email || "Signed-in account";
     authStatus.textContent =
       "Signed in as " +
       getAuthIdentityLabel(currentAuthUser) +
@@ -96,6 +133,8 @@ function updateAuthUi() {
     authPasswordInput.value = "";
   } else {
     authSessionBadge.textContent = "Signed out";
+    authUserEmail.hidden = true;
+    authUserEmail.textContent = "";
     authStatus.textContent =
       "Sign up or log in with email and password. When signed out, your ideas stay local in this browser.";
   }
@@ -115,7 +154,7 @@ function getAuthCredentials() {
   const password = authPasswordInput.value;
 
   if (!email || !password) {
-    alert("Enter both email and password.");
+    setAppFeedback("Enter both email and password to continue.", "error");
     return null;
   }
 
@@ -148,15 +187,13 @@ async function signUpWithSupabase() {
     authPasswordInput.value = "";
 
     if (data.session) {
-      authStatus.textContent =
-        "Your account was created and you are signed in as " + getAuthIdentityLabel(data.user) + ".";
+      setAppFeedback("Your account was created and you are signed in.", "success");
     } else {
-      authStatus.textContent =
-        "Your account was created. Check your email for the confirmation link, then log in here.";
+      setAppFeedback("Your account was created. Check your email for the confirmation link, then log in here.", "success");
     }
   } catch (error) {
     authStatus.textContent = error.message || "We could not sign you up right now.";
-    alert(authStatus.textContent);
+    setAppFeedback(authStatus.textContent, "error");
   } finally {
     setAuthBusyState(false);
   }
@@ -183,10 +220,10 @@ async function logInWithSupabase() {
 
     updateAuthState(data.session || null);
     authPasswordInput.value = "";
-    authStatus.textContent = "You are now logged in as " + getAuthIdentityLabel(data.user) + ".";
+    setAppFeedback("You are now logged in.", "success");
   } catch (error) {
     authStatus.textContent = error.message || "We could not log you in right now.";
-    alert(authStatus.textContent);
+    setAppFeedback(authStatus.textContent, "error");
   } finally {
     setAuthBusyState(false);
   }
@@ -211,9 +248,10 @@ async function logOutOfSupabase() {
     localStorage.setItem(storageKey, localIdeasBackup);
     restoreSignedOutIdeas();
     authStatus.textContent = "You are logged out. Your local browser ideas are shown here again.";
+    setAppFeedback("You are logged out. Local browser ideas are back on screen.", "success");
   } catch (error) {
     authStatus.textContent = error.message || "We could not log you out right now.";
-    alert(authStatus.textContent);
+    setAppFeedback(authStatus.textContent, "error");
   } finally {
     setAuthBusyState(false);
   }
@@ -234,6 +272,9 @@ async function initializeAuth() {
   updateAuthState(data && data.session ? data.session : null);
 
   if (currentAuthUser) {
+    ideas = [];
+    setIdeasLoadingState(true, "Loading your ideas from Supabase...");
+    renderIdeas();
     await loadIdeasFromSupabase(false);
   }
 
@@ -262,6 +303,7 @@ function updateSignedOutIdeasSnapshot(nextIdeas) {
 
 function restoreSignedOutIdeas() {
   ideas = copyIdeasSnapshot(signedOutIdeasSnapshot);
+  setIdeasLoadingState(false, "");
   resetForm();
   renderIdeas();
 }
@@ -271,6 +313,10 @@ async function handleAuthStateChange(event, session) {
 
   if (session && session.user) {
     authStatus.textContent = "Signed in as " + getAuthIdentityLabel(session.user) + ". Loading your ideas from Supabase.";
+    ideas = [];
+    setIdeasLoadingState(true, "Loading your ideas from Supabase...");
+    resetForm();
+    renderIdeas();
     await loadIdeasFromSupabase(event !== "INITIAL_SESSION");
     return;
   }
@@ -467,12 +513,7 @@ function getSupabaseIdeaErrorMessage(actionLabel, error) {
     return baseMessage;
   }
 
-  return (
-    baseMessage +
-    " Make sure your \"" +
-    supabaseIdeasTableName +
-    "\" table includes id, user_id, title, category, lyric, pinned, and created_at."
-  );
+  return baseMessage + " " + error.message;
 }
 
 async function loadIdeasFromSupabase(showAlertOnError) {
@@ -481,6 +522,9 @@ async function loadIdeasFromSupabase(showAlertOnError) {
   }
 
   try {
+    setIdeasLoadingState(true, "Loading your ideas from Supabase...");
+    renderIdeas();
+
     const { data, error } = await supabaseClient
       .from(supabaseIdeasTableName)
       .select(supabaseIdeaSelectColumns)
@@ -492,18 +536,20 @@ async function loadIdeasFromSupabase(showAlertOnError) {
     }
 
     ideas = normalizeIdeasCollection(data || []);
+    setIdeasLoadingState(false, "");
     resetForm();
     renderIdeas();
     authStatus.textContent =
-      "Signed in as " + getAuthIdentityLabel(currentAuthUser) + ". Your ideas are now loading from Supabase.";
+      "Signed in as " + getAuthIdentityLabel(currentAuthUser) + ". Your ideas are loading from Supabase for this account.";
   } catch (error) {
+    setIdeasLoadingState(false, "");
     ideas = [];
     resetForm();
     renderIdeas();
     authStatus.textContent = getSupabaseIdeaErrorMessage("load your ideas", error);
 
     if (showAlertOnError) {
-      alert(authStatus.textContent);
+      setAppFeedback(authStatus.textContent, "error");
     }
   }
 }
@@ -736,13 +782,28 @@ function renderEmptyState(list, searchQuery) {
 
   const emptyTitle = document.createElement("h3");
   emptyTitle.className = "empty-state-title";
-  emptyTitle.textContent = searchQuery ? "No matching ideas" : "No ideas saved yet";
 
   const emptyText = document.createElement("p");
   emptyText.className = "empty-state-text";
-  emptyText.textContent = searchQuery
-    ? "Try a different title or lyric search to find the draft you want."
-    : "Your saved hooks, verses, and song concepts will show up here as polished cards.";
+
+  if (ideasAreLoading) {
+    emptyTitle.textContent = "Loading ideas";
+    emptyText.textContent = isUsingSupabaseIdeas()
+      ? "We are pulling your private ideas from Supabase now."
+      : "We are refreshing your ideas.";
+  } else if (searchQuery || activeCategoryFilter !== "All" || activeFavoritesOnly) {
+    emptyTitle.textContent = "No matching ideas";
+    emptyText.textContent =
+      "Try a different search, category, or favorites filter to find the draft you want.";
+  } else if (isUsingSupabaseIdeas()) {
+    emptyTitle.textContent = "No Supabase ideas yet";
+    emptyText.textContent =
+      "You are signed in and connected to Supabase. Save your first idea and it will appear here.";
+  } else {
+    emptyTitle.textContent = "No local ideas yet";
+    emptyText.textContent =
+      "Start with a title, category, and lyric note, then save it to build your writing library.";
+  }
 
   emptyItem.appendChild(emptyTitle);
   emptyItem.appendChild(emptyText);
@@ -852,8 +913,9 @@ async function deleteIdea(index) {
     try {
       await deleteIdeaFromSupabase(idea.id);
       await loadIdeasFromSupabase(true);
+      setAppFeedback("Idea deleted.", "success");
     } catch (error) {
-      alert(getSupabaseIdeaErrorMessage("delete that idea", error));
+      setAppFeedback(getSupabaseIdeaErrorMessage("delete that idea", error), "error");
     }
 
     return;
@@ -869,6 +931,7 @@ async function deleteIdea(index) {
 
   saveIdeas();
   renderIdeas();
+  setAppFeedback("Idea deleted.", "success");
 }
 
 async function togglePinnedIdea(index) {
@@ -885,8 +948,9 @@ async function togglePinnedIdea(index) {
         pinned: idea.pinned !== true
       });
       await loadIdeasFromSupabase(true);
+      setAppFeedback(idea.pinned ? "Idea unpinned." : "Idea pinned to the top.", "success");
     } catch (error) {
-      alert(getSupabaseIdeaErrorMessage("update that pin", error));
+      setAppFeedback(getSupabaseIdeaErrorMessage("update that pin", error), "error");
     }
 
     return;
@@ -899,6 +963,7 @@ async function togglePinnedIdea(index) {
 
   saveIdeas();
   renderIdeas();
+  setAppFeedback(ideas[index].pinned ? "Idea pinned to the top." : "Idea unpinned.", "success");
 }
 
 async function saveIdea() {
@@ -912,6 +977,8 @@ async function saveIdea() {
   }
 
   if (isUsingSupabaseIdeas()) {
+    const wasEditingIdea = editingIdeaIndex !== null;
+
     try {
       if (editingIdeaIndex === null) {
         await createIdeaInSupabase({
@@ -938,12 +1005,15 @@ async function saveIdea() {
 
       resetForm();
       await loadIdeasFromSupabase(true);
+      setAppFeedback(wasEditingIdea ? "Idea updated in Supabase." : "Idea saved to Supabase.", "success");
     } catch (error) {
-      alert(getSupabaseIdeaErrorMessage("save that idea", error));
+      setAppFeedback(getSupabaseIdeaErrorMessage("save that idea", error), "error");
     }
 
     return;
   }
+
+  const wasEditingIdea = editingIdeaIndex !== null;
 
   if (editingIdeaIndex === null) {
     ideas.push({
@@ -965,6 +1035,7 @@ async function saveIdea() {
   saveIdeas();
   resetForm();
   renderIdeas();
+  setAppFeedback(wasEditingIdea ? "Idea updated." : "Idea saved.", "success");
 }
 
 function cancelEdit() {
@@ -977,7 +1048,10 @@ function openImportIdeas() {
 
 function importIdeasFromFile(event) {
   if (isUsingSupabaseIdeas()) {
-    alert("Importing directly into Supabase is not connected yet. Please log out if you want to import browser-local ideas.");
+    setAppFeedback(
+      "Importing directly into Supabase is not connected yet. Log out first if you want to import browser-local ideas.",
+      "info"
+    );
     importIdeasInput.value = "";
     return;
   }
@@ -1009,16 +1083,16 @@ function importIdeasFromFile(event) {
       resetForm();
       saveIdeas();
       renderIdeas();
-      alert("Imported " + importedIdeas.length + " ideas.");
+      setAppFeedback("Imported " + importedIdeas.length + " ideas.", "success");
     } catch (error) {
-      alert(error.message || "We could not import that file.");
+      setAppFeedback(error.message || "We could not import that file.", "error");
     } finally {
       importIdeasInput.value = "";
     }
   });
 
   fileReader.addEventListener("error", function() {
-    alert("We could not read that file.");
+    setAppFeedback("We could not read that file.", "error");
     importIdeasInput.value = "";
   });
 
@@ -1027,7 +1101,7 @@ function importIdeasFromFile(event) {
 
 function exportIdeas() {
   if (ideas.length === 0) {
-    alert("Add at least one idea before exporting a backup.");
+    setAppFeedback("Add at least one idea before exporting a backup.", "info");
     return;
   }
 
@@ -1049,6 +1123,7 @@ function exportIdeas() {
   downloadLink.click();
   document.body.removeChild(downloadLink);
   URL.revokeObjectURL(downloadUrl);
+  setAppFeedback("Backup exported as JSON.", "success");
 }
 
 function exportVisibleIdeasText() {
@@ -1058,13 +1133,14 @@ function exportVisibleIdeasText() {
   updateVisibleIdeasExport(visibleIdeaEntries);
 
   if (visibleIdeaEntries.length === 0) {
-    alert("There are no visible ideas to export right now.");
+    setAppFeedback("There are no visible ideas to export right now.", "info");
     return;
   }
 
   visibleIdeasExportOutput.focus();
   visibleIdeasExportOutput.select();
   visibleIdeasExportOutput.setSelectionRange(0, visibleIdeasExportOutput.value.length);
+  setAppFeedback("Visible ideas export is ready to copy.", "success");
 }
 
 ideaSearchInput.addEventListener("input", renderIdeas);
